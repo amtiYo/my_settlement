@@ -325,6 +325,16 @@ def start_work(chat_id: int):
     
     work_timeout_tasks[chat_id] = asyncio.create_task(timeout_work(chat_id))
 
+def release_work(chat_id: int):
+    """Освобождает чат, если работа так и не началась (без паузы между трудами)."""
+    work_in_progress[chat_id] = False
+
+    if chat_id in work_timeout_tasks:
+        work_timeout_tasks[chat_id].cancel()
+        del work_timeout_tasks[chat_id]
+
+    work_start_time.pop(chat_id, None)
+
 def end_work(chat_id: int):
     work_in_progress[chat_id] = False
     last_work_end_time[chat_id] = time.time()

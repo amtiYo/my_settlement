@@ -578,22 +578,29 @@ async def settler_startWorkflow(message_or_callback: Union[types.Message, types.
     if not can_start:
         await message_or_callback.answer(error) if is_message else await message_or_callback.answer(error, show_alert=True)
         return False
-    
-    async with app_db.SessionLocal() as session:
-        for emoji, qty in work.requirements.items():
-            if emoji == "level":
-                if settler.level < qty:
-                    text = f"⚠️ Сие дело тебе не по плечу. 💡 Требуемая ступень: {settler.level}/{qty}"
-                    await message_or_callback.answer(text) if is_message else await message_or_callback.answer(text, show_alert=True)
-                    return False
-                continue
-            success, result = await settler_updateResource(settler, session, emoji, - qty, check_if_enough=True)
-            if not success:
-                await message_or_callback.answer(result) if is_message else await message_or_callback.answer(result, show_alert=True)
-                return success
-        await session.commit()
-    
+
+    # Занимаем чат сразу после проверки, до первого await: иначе два запроса успевают начать работу одновременно
     utils.start_work(chat_id)
+    try:
+        async with app_db.SessionLocal() as session:
+            for emoji, qty in work.requirements.items():
+                if emoji == "level":
+                    if settler.level < qty:
+                        utils.release_work(chat_id)
+                        text = f"⚠️ Сие дело тебе не по плечу. 💡 Требуемая ступень: {settler.level}/{qty}"
+                        await message_or_callback.answer(text) if is_message else await message_or_callback.answer(text, show_alert=True)
+                        return False
+                    continue
+                success, result = await settler_updateResource(settler, session, emoji, - qty, check_if_enough=True)
+                if not success:
+                    utils.release_work(chat_id)
+                    await message_or_callback.answer(result) if is_message else await message_or_callback.answer(result, show_alert=True)
+                    return success
+            await session.commit()
+    except Exception:
+        utils.release_work(chat_id)
+        raise
+
     workflow = work.build()
     utils.active_games[user_key] = workflow
 
