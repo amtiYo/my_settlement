@@ -153,3 +153,20 @@ def test_works_are_bound_to_profession_emoji_not_database_id():
     assert fishing.is_available_for(models.Settler(profession_id=catcher.id, profession=catcher)) is True
     assert fishing.is_available_for(models.Settler(profession_id=farmer.id, profession=farmer)) is False
     assert fishing.is_available_for(models.Settler(profession_id=None)) is False
+
+
+@pytest.mark.asyncio
+async def test_menu_callbacks_survive_deleted_command_message(monkeypatch):
+    callback = FakeCallback(data="select_work:catcher_fishing")
+    callback.message.reply_to_message = None
+    user = models.User(id=1, telegram_id=1, name="Tester")
+    monkeypatch.setattr(handlers.core, "user_getOrCreate", AsyncMock(return_value=user))
+    monkeypatch.setattr(handlers.core, "settlement_getOrCreate", AsyncMock(return_value=models.Settlement(id=1, chat_id=-1000, name="Village")))
+    monkeypatch.setattr(handlers.core, "settler_getOrCreate", AsyncMock(return_value=models.Settler(id=1)))
+    starter = AsyncMock()
+    monkeypatch.setattr(handlers.core, "settler_startWorkflow", starter)
+
+    await handlers.work_selection_callback(callback, _translator())
+
+    callback.answer.assert_awaited_once()
+    starter.assert_not_awaited()

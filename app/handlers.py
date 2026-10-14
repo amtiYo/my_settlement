@@ -32,6 +32,12 @@ log = setup_logging(logging.getLogger(__name__))
 tf = TimezoneFinder()
 
 
+def is_menu_owner(callback: types.CallbackQuery) -> bool:
+    #* Нажал ли кнопку тот, чьей командой вызвано меню. Если исходное сообщение удалено, проверить нельзя: запрещаем
+    reply = callback.message.reply_to_message if callback.message else None
+    return bool(reply and reply.from_user and reply.from_user.id == callback.from_user.id)
+
+
 # ================= Private chats ================
 
 @router.my_chat_member()
@@ -392,7 +398,7 @@ async def set_tz_callback(callback: types.CallbackQuery, i18n: TranslatorRunner)
 
 @router.callback_query(F.data.startswith("set_lang:"))
 async def set_language(callback: types.CallbackQuery, i18n_middleware: I18nMiddleware, i18n: TranslatorRunner):
-    if callback.from_user.id != callback.message.reply_to_message.from_user.id:
+    if not is_menu_owner(callback):
         await callback.answer("⚠️ " + i18n.callback.common.dont_touch(), True)
         return
     
@@ -832,7 +838,7 @@ async def cosmetics_command(message: types.Message, user: models.User, i18n: Tra
 @router.callback_query(F.data.startswith("cosmetics_select_"))
 async def cosmetics_select(callback: types.CallbackQuery, i18n: TranslatorRunner):
     #* Выбор эмодзи косметики
-    if callback.from_user.id != callback.message.reply_to_message.from_user.id:
+    if not is_menu_owner(callback):
         await callback.answer("⚠️ " + i18n.callback.common.dont_touch(), True)
         return
     
@@ -922,7 +928,7 @@ async def overtime_command(message: types.Message, user: models.User, i18n: Tran
 async def overtime_take(callback: types.CallbackQuery, i18n: TranslatorRunner):
     #* Взять страду
     async with app_db.SessionLocal() as session:
-        if callback.from_user.id != callback.message.reply_to_message.from_user.id:
+        if not is_menu_owner(callback):
             await callback.answer("⚠️ " + i18n.callback.common.dont_touch(), True)
             return
 
@@ -1050,7 +1056,7 @@ async def select_craft_callback(callback: types.CallbackQuery, i18n: TranslatorR
         settlement = await core.settlement_getOrCreate(callback.message.chat)
         settler = await core.settler_getOrCreate(user, settlement)
 
-        if callback.from_user.id != callback.message.reply_to_message.from_user.id:
+        if not is_menu_owner(callback):
             await callback.answer("⚠️ " + i18n.callback.common.dont_touch(), True)
             return
         
@@ -1119,7 +1125,7 @@ async def work_selection_callback(callback: types.CallbackQuery, i18n: Translato
     settlement = await core.settlement_getOrCreate(callback.message.chat)
     settler = await core.settler_getOrCreate(user, settlement)
 
-    if callback.from_user.id != callback.message.reply_to_message.from_user.id:
+    if not is_menu_owner(callback):
         await callback.answer("⚠️ " + i18n.callback.common.dont_touch(), True)
         return
     
