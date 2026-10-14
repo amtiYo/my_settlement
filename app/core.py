@@ -149,6 +149,8 @@ async def building_checkRequirements(settlement: models.Settlement, settler: mod
 
     return global_prof_success, prof_text, can_afford_resources, cost_text
 
+PRIVATE_BUILDING_SCOPES = ("my", "private", "settler", "personal")
+
 async def building_startBuilding(settler: models.Settler, building_type_id: int, scope: str, session: AsyncSession) -> tuple[bool, str]:
     """Начало строительства."""
     stmt = select(models.BuildingType).options(selectinload(models.BuildingType.costs)).where(models.BuildingType.id == building_type_id)
@@ -156,6 +158,10 @@ async def building_startBuilding(settler: models.Settler, building_type_id: int,
     
     if not b_type:
         return False, "⚠️ Чертеж не найден."
+
+    is_private_scope = scope in PRIVATE_BUILDING_SCOPES
+    if bool(b_type.is_private) != is_private_scope:
+        return False, "⚠️ Этот чертёж нельзя построить здесь."
 
     settlement = await session.get(models.Settlement, settler.settlement_id)
     is_prof_enough, prof_text, is_res_enough, res_text = await building_checkRequirements(settlement, settler, b_type, session)
@@ -197,7 +203,7 @@ async def building_startBuilding(settler: models.Settler, building_type_id: int,
     new_building = models.Building(
         building_type_id=b_type.id,
         settlement_id=settler.settlement_id,
-        owner_id=settler.id if scope == "my" or scope == "private" or scope == "settler" or scope == "personal" else None,
+        owner_id=settler.id if is_private_scope else None,
         level=1,
         under_construction_until=finish_time.datetime
     )

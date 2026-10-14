@@ -695,7 +695,7 @@ async def buildings_callback(callback: types.CallbackQuery, i18n: TranslatorRunn
         cost_text = []
         is_res_enough = True
         is_mayor = True
-        if scope == "town" and not settlement.owner or settlement.owner.telegram_id != callback.from_user.id:
+        if scope == "town" and (not settlement.owner or settlement.owner.telegram_id != callback.from_user.id):
             is_mayor = False
     
         async with app_db.SessionLocal() as session:

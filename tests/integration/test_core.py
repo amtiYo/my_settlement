@@ -91,6 +91,24 @@ async def test_building_start_building_consumes_resources_and_creates_building(d
 
 
 @pytest.mark.asyncio
+async def test_building_start_building_rejects_blueprint_from_other_scope(db_session):
+    owner = await create_user(db_session, telegram_id=4002)
+    settlement = await create_settlement(db_session, owner=owner, chat_id=-4002)
+    settler = await create_settler(db_session, user=owner, settlement=settlement)
+    town_type = await create_building_type(db_session, name="Площадь", emoji="⛲", is_private=False)
+    private_type = await create_building_type(db_session, name="Изба", emoji="🛖", is_private=True)
+    await db_session.commit()
+
+    town_as_private, _ = await core.building_startBuilding(settler, town_type.id, "my", db_session)
+    private_as_town, _ = await core.building_startBuilding(settler, private_type.id, "town", db_session)
+
+    assert town_as_private is False
+    assert private_as_town is False
+    buildings = (await db_session.execute(select(models.Building))).scalars().all()
+    assert buildings == []
+
+
+@pytest.mark.asyncio
 async def test_settler_add_exp_promotes_rank_and_notifies(db_session, monkeypatch):
     sender = AsyncMock()
     monkeypatch.setattr(telegram_gateway, "send_message", sender)
