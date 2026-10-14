@@ -487,6 +487,12 @@ async def settler_add(settler: models.Settler, session: AsyncSession, emoji: str
     obtained[emoji] = quantity
     return obtained
 
+def _target_quote(settler: models.Settler) -> int:
+    #* Цель меры. overtime_count уже включает текущую страду: overtime_take увеличивает его при взятии
+    if settler.overtime_is_toggled:
+        return round((settler.level * 0.85 + 6) + (2 * settler.overtime_count))
+    return round(settler.level * 0.85 + 6)
+
 async def settler_updateQuote(settler: models.Settler, settlement: models.Settlement, session: AsyncSession, add_quote: int = 0):
     #* Обновление меры поселенца и обработка её выполнения
     async with app_db.try_session(session) as session:
@@ -494,10 +500,7 @@ async def settler_updateQuote(settler: models.Settler, settlement: models.Settle
         if not current:
             return None
 
-        if settler.overtime_is_toggled:
-            current.target_quote = round((settler.level * 0.85 + 6) + (2 * (settler.overtime_count + 1)))
-        else:
-            current.target_quote = round(current.level * 0.85 + 6)
+        current.target_quote = _target_quote(current)
 
         if not current.quote_is_completed:
             current.quote += add_quote
@@ -528,15 +531,12 @@ async def settler_updateQuote(settler: models.Settler, settlement: models.Settle
                     earned_xp *= 0.2
                 await settler_addExp(current, session, earned_xp)
                 
-                if current:
-                    current.quote = 0
-                    if current.overtime_is_toggled:
-                        current.target_quote = round((settler.level * 0.85 + 6) + (2 * (settler.overtime_count + 1)))
-                    else:
-                        current.target_quote = round(current.level * 0.85 + 6)
-                
+                completed_target = current.target_quote
+                current.quote = 0
+                current.target_quote = _target_quote(current)
+
                 text = (
-                    f"📄 <b>{user.name if user else f'User {current.user_id}'}</b> исполнил меру <b>{current.target_quote}/{current.target_quote}</b>!"
+                    f"📄 <b>{user.name if user else f'User {current.user_id}'}</b> исполнил меру <b>{completed_target}/{completed_target}</b>!"
                     + (f"\n🗂: {round(earned_xp):+} | 💰: {round(earned_money):+}" if earned_xp > 0 else f"\n💰: {round(earned_money):+}")
                     + (f"\nℹ️ Чтоб в мудрости возрасти, доведётся каталог 🗂 до конца довести; каталог 🗂 опыт заменяет" if current.level <= 2 and user and user.show_hints else "")
                 )

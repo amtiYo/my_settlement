@@ -309,7 +309,7 @@ async def test_settler_update_quote_covers_high_rank_overtime_branch(db_session,
 
     user = await create_user(db_session, telegram_id=5292, name="Veteran")
     settlement = await create_settlement(db_session, owner=user, chat_id=-5292)
-    target_quote = round((40 * 0.85 + 6) + (2 * (1 + 1)))
+    target_quote = round((40 * 0.85 + 6) + (2 * 1))
     settler = await create_settler(
         db_session,
         user=user,
@@ -514,3 +514,29 @@ async def test_start_workflow_locks_chat_once_and_releases_on_failed_requirement
         core.settler_startWorkflow(make_callback(), work, owner, settler),
     )
     assert sorted(results) == [False, True]
+
+
+@pytest.mark.asyncio
+async def test_overtime_target_matches_value_announced_on_take(db_session, monkeypatch):
+    monkeypatch.setattr(core.telegram_gateway, "send_message", AsyncMock())
+
+    user = await create_user(db_session, telegram_id=5295, name="Overtimer")
+    settlement = await create_settlement(db_session, owner=user, chat_id=-5295)
+    announced = round((3 * 0.85 + 6) + (2 * (0 + 1)))  # как считает overtime_take при overtime_count = 0
+    settler = await create_settler(
+        db_session,
+        user=user,
+        settlement=settlement,
+        level=3,
+        quote=0,
+        target_quote=announced,
+        overtime_is_toggled=True,
+    )
+    settler.overtime_count = 1
+    await db_session.commit()
+
+    await core.settler_updateQuote(settler, settlement, db_session, add_quote=1)
+    await db_session.refresh(settler)
+
+    assert settler.quote == 1
+    assert settler.target_quote == announced
