@@ -117,6 +117,23 @@ async def test_settler_add_exp_promotes_rank_and_notifies(db_session, monkeypatc
 
 
 @pytest.mark.asyncio
+async def test_settler_add_exp_never_goes_negative_on_multi_level_up(db_session, monkeypatch):
+    monkeypatch.setattr(telegram_gateway, "send_message", AsyncMock())
+
+    user = await create_user(db_session, telegram_id=5002, name="Grinder")
+    settlement = await create_settlement(db_session, owner=user, chat_id=-5002)
+    settler = await create_settler(db_session, user=user, settlement=settlement, level=0)
+    await db_session.commit()
+
+    updated = await core.settler_addExp(settler, db_session, 15)
+
+    # 15 = 7 (0 → 1) + 7 (1 → 2) + 1 остаток
+    assert updated.level == 2
+    assert updated.exp == 1
+    assert updated.target_exp == 9
+
+
+@pytest.mark.asyncio
 async def test_settler_update_quote_rewards_and_resets_progress(db_session, monkeypatch):
     sender = AsyncMock()
     monkeypatch.setattr(telegram_gateway, "send_message", sender)

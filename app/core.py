@@ -343,6 +343,7 @@ async def settler_addExp(settler: models.Settler, session: AsyncSession, exp: in
     old_emoji = settler.rank_emoji_available[0] if settler.rank_emoji_available else "❓"
 
     while settler.exp >= settler.target_exp:
+        reached_exp = settler.target_exp
         if settler.level < 15:
             settler.target_exp = 2 * settler.level + 7
             settler.rank = "Крестьянин"
@@ -360,7 +361,7 @@ async def settler_addExp(settler: models.Settler, session: AsyncSession, exp: in
             settler.rank = "Лорд"
 
         settler.level += 1
-        settler.exp -= settler.target_exp
+        settler.exp -= reached_exp
 
         text = f"🎉 <b>{user.name if user else f"User {settler.user_id}"}</b> повысил(а) ступень до <b>{settler.level}</b>! (🗂 {settler.exp}/{settler.target_exp})\n"
     
