@@ -371,7 +371,7 @@ async def notify_developers(message: str):
 
 def get_timezones_at_hour(target_hour: int) -> list[str]:
     target_timezones = []
-    for tz_name in pytz.common_timezones:
+    for tz_name in pytz.all_timezones:
         try:
             if arrow.now(tz_name).hour == target_hour:
                 target_timezones.append(tz_name)

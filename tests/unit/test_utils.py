@@ -260,7 +260,7 @@ async def test_mark_work_completed_and_notify_developers(monkeypatch):
 
 
 def test_get_timezones_at_hour(monkeypatch):
-    monkeypatch.setattr(utils.pytz, "common_timezones", ["UTC", "Europe/Berlin"])
+    monkeypatch.setattr(utils.pytz, "all_timezones", ["UTC", "Europe/Berlin"])
 
     def fake_now(timezone_name):
         if timezone_name == "Europe/Berlin":
@@ -270,3 +270,9 @@ def test_get_timezones_at_hour(monkeypatch):
 
     monkeypatch.setattr(utils.arrow, "now", fake_now)
     assert utils.get_timezones_at_hour(10) == ["UTC"]
+
+
+def test_get_timezones_at_hour_includes_default_user_timezone():
+    # Europe/Kiev стоит по умолчанию у User.timezone, но его нет в pytz.common_timezones
+    hour = arrow.now("Europe/Kiev").hour
+    assert "Europe/Kiev" in utils.get_timezones_at_hour(hour)
