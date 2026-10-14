@@ -719,24 +719,10 @@ def _get_effective_bonuses(item: models.LootItem, settler_bonuses: BonusSet, set
     #* Создает итоговый набор бонусов для предмета, учитывая флаги affected_by
     effective = BonusSet()
 
-    def merge(source: BonusSet):
-        effective.global_chance += source.global_chance
-        effective.global_qty_mod += source.global_qty_mod
-        effective.global_qty_mult *= source.global_qty_mult
-        
-        for k, v in source.category_chance.items(): effective.category_chance[k] = effective.category_chance.get(k, 0.0) + v
-        for k, v in source.resource_chance.items(): effective.resource_chance[k] = effective.resource_chance.get(k, 0.0) + v
-        
-        for k, v in source.category_qty_mod.items(): effective.category_qty_mod[k] = effective.category_qty_mod.get(k, 0) + v
-        for k, v in source.resource_qty_mod.items(): effective.resource_qty_mod[k] = effective.resource_qty_mod.get(k, 0) + v
-        
-        for k, v in source.category_qty_mult.items(): effective.category_qty_mult[k] = effective.category_qty_mult.get(k, 1.0) * v
-        for k, v in source.resource_qty_mult.items(): effective.resource_qty_mult[k] = effective.resource_qty_mult.get(k, 1.0) * v
-
     if item.affected_by_settler_bonuses:
-        merge(settler_bonuses)
+        effective.merge(settler_bonuses)
     if item.affected_by_settlement_bonuses:
-        merge(settlement_bonuses)
+        effective.merge(settlement_bonuses)
         
     return effective
 
