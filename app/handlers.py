@@ -40,6 +40,7 @@ async def bot_added_to_chat_event(event: types.ChatMemberUpdated):
     chat = event.chat
     kb = InlineKeyboardBuilder()
     i18n = create_translator_hub().get_translator_by_locale("ru")
+    text = None
 
     if event.new_chat_member.status in ["left", "kicked"]:
         log.debug(f"{chat.id} | Бот исключен из группы {chat.title}")
@@ -79,7 +80,10 @@ async def bot_added_to_chat_event(event: types.ChatMemberUpdated):
     elif event.new_chat_member.status in ["member", "restricted"] and event.old_chat_member.status == "administrator":
         text = "⚠️ " + i18n.text.other.bot.added.no_admin()
         text_log = f"{chat.id} | Бот снят с администратора"
-    
+
+    if text is None:
+        return
+
     await event.answer(text, reply_markup=kb.as_markup())
     log.debug(text_log)
 
@@ -250,7 +254,7 @@ async def show_settings_menu(message: types.Message, user: models.User, submenu:
         if now < unlock_time:
             time_left = utils.format_relative_time(unlock_time, now, fallback=True)
             if callback: await callback.answer("⏳ " + i18n.callback.settings.timezone.error.locked(time_left=time_left), show_alert=True)
-            else: message.reply("⏳ " + i18n.text.settings.timezone.error.locked(time_left=time_left))
+            else: await message.reply("⏳ " + i18n.text.settings.timezone.error.locked(time_left=time_left))
             return
 
         determine_text = "📍 " + i18n.button.settings.timezone.determine()
@@ -444,7 +448,7 @@ async def private_handler(message: types.Message, user: models.User, command: Co
             if menu == "settings":
                 await show_settings_menu(message, user, submenu, i18n=i18n)
             elif menu == "id":
-                await show_id_menu(message, user)
+                await show_id_menu(message, user, i18n)
 
             return
         
@@ -473,10 +477,13 @@ async def start_command(message: types.Message, i18n: TranslatorRunner):
 
     kb = InlineKeyboardBuilder()
     kb.button(text="👤 " + i18n.button.settlement.profile(), switch_inline_query_current_chat="Лик")
-    if settlement.owner.telegram_id == message.from_user.id:
+    if settlement.owner and settlement.owner.telegram_id == message.from_user.id:
         kb.row(InlineKeyboardButton(text="📜 " + i18n.button.settlement.rename(), switch_inline_query_current_chat="Переименовать поселение"), InlineKeyboardButton(text="🏗 " + i18n.button.settlement.buildings(), switch_inline_query_current_chat="Городские постройки"))
 
-    owner_name = settlement.owner.name or (i18n.text.settlement.view.owner.fallback(telegram_id=settlement.owner.telegram_id) if settlement.owner else i18n.text.settlement.view.owner.missing())
+    if not settlement.owner:
+        owner_name = i18n.text.settlement.view.owner.missing()
+    else:
+        owner_name = settlement.owner.name or i18n.text.settlement.view.owner.fallback(telegram_id=settlement.owner.telegram_id)
     text = (
         f"<b>{settlement.name}</b> (основан {utils.format_relative_time(settlement.created_at)})\n"
         f"👥{len(settlement.members)} 👑 <b>{owner_name}</b>"
@@ -867,7 +874,7 @@ async def cosmetics_select(callback: types.CallbackQuery, i18n: TranslatorRunner
                 ))
     
     kb = InlineKeyboardBuilder().row(*buttons).as_markup()
-    await callback.message.edit_text(text=f"🪭 " + i18n.text.settler.cosmetics.title() + f"\n\n🎭 " + i18n.text.settler.cosmetics.current(emoji=db_settler.emoji), reply_markup=kb)
+    await callback.message.edit_text(text=f"🪭 <b>" + i18n.text.settler.cosmetics.title() + f"</b>\n\n🎭 <b>" + i18n.text.settler.cosmetics.current() + f":</b> {db_settler.emoji}", reply_markup=kb)
 
 
 @router.message(or_f(Command("overtime"), TextCommand("страда", "overtime", "понадмір", "зайва міра")))

@@ -115,3 +115,30 @@ async def test_work_selection_callback_checks_user_and_starts_workflow(monkeypat
     await handlers.work_selection_callback(callback, i18n)
 
     starter.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_bot_rights_change_without_status_change_is_ignored():
+    event = SimpleNamespace(
+        chat=SimpleNamespace(id=-1000, title="Village"),
+        from_user=SimpleNamespace(id=1),
+        old_chat_member=SimpleNamespace(status="administrator"),
+        new_chat_member=SimpleNamespace(status="administrator"),
+        answer=AsyncMock(),
+    )
+
+    await handlers.bot_added_to_chat_event(event)
+
+    event.answer.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_id_menu_deep_link_renders_full_style():
+    message = FakeMessage(chat_type="private")
+    user = models.User(id=1, telegram_id=1, name="Tester", compact_style=False)
+    command = SimpleNamespace(args="menu_id")
+
+    await handlers.private_handler(message, user, command, _translator())
+
+    message.answer.assert_awaited_once()
+    assert "Telegram ID" in message.answer.await_args.args[0]
