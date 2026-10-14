@@ -1,7 +1,8 @@
 from dataclasses import dataclass, field
-from sqlalchemy import or_, text, insert, select, update, func
+from sqlalchemy import or_, text, select, update, func
 from sqlalchemy.orm import selectinload
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm.attributes import flag_modified
 from aiogram import types
@@ -197,14 +198,20 @@ async def building_startBuilding(settler: models.Settler, building_type_id: int,
         return False, f"⚠️ Недостаточно ресурсов: {', '.join(missing)}!"
 
     for res_id, qty in costs_res:
-        await session.execute(
+        # Условие на остаток в самом UPDATE: параллельный запрос мог списать ресурсы после проверки выше
+        result = await session.execute(
             update(models.settler_resources)
             .where(
                 models.settler_resources.c.settler_id == settler.id,
-                models.settler_resources.c.resource_id == res_id
+                models.settler_resources.c.resource_id == res_id,
+                models.settler_resources.c.quantity >= qty
             )
             .values(quantity=models.settler_resources.c.quantity - qty)
         )
+        if result.rowcount == 0:
+            await session.rollback()
+            res_obj = await session.get(models.Resource, res_id)
+            return False, f"⚠️ Недостаточно ресурсов: {res_obj.emoji}!"
 
     finish_time = arrow.now().shift(seconds=b_type.construction_time)
     
@@ -435,9 +442,22 @@ async def settler_updateResource(settler: models.Settler, session: AsyncSession,
     if check_if_enough and quantity < 0 and (current_qty + quantity) < 0:
         return False, f"⚠️ Недостаточно ресурсов: {resource.emoji} {current_qty}/{abs(quantity)}"
 
-    res = await session.execute(update(table).where(criteria).values(quantity=table.c.quantity + quantity))
+    update_stmt = update(table).where(criteria)
+    if check_if_enough and quantity < 0:
+        # Условие на остаток в самом UPDATE: параллельный запрос мог списать ресурсы после проверки выше
+        update_stmt = update_stmt.where(table.c.quantity + quantity >= 0)
+    res = await session.execute(update_stmt.values(quantity=table.c.quantity + quantity))
     if res.rowcount == 0:
-        await session.execute(insert(table).values(settler_id=settler.id, resource_id=resource.id, quantity=quantity))
+        if check_if_enough and quantity < 0:
+            return False, f"⚠️ Недостаточно ресурсов: {resource.emoji} {current_qty}/{abs(quantity)}"
+        await session.execute(
+            pg_insert(table)
+            .values(settler_id=settler.id, resource_id=resource.id, quantity=quantity)
+            .on_conflict_do_update(
+                index_elements=[table.c.settler_id, table.c.resource_id],
+                set_={"quantity": table.c.quantity + quantity},
+            )
+        )
 
     target_col, action = (models.Resource.received, "📥 Получен") if quantity > 0 else (models.Resource.spent, "📤 Снят")
     await session.execute(

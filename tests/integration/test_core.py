@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import asyncio
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
 import pytest
 from sqlalchemy import select
 
+import app.db as app_db
 from app import core, models
 import app.telegram_gateway as telegram_gateway
 from tests.support.aiogram_builders import build_chat, build_user
@@ -123,6 +125,32 @@ async def test_building_start_building_rejects_second_copy(db_session):
     assert second is False
     buildings = (await db_session.execute(select(models.Building))).scalars().all()
     assert len(buildings) == 1
+
+
+@pytest.mark.asyncio
+async def test_concurrent_building_starts_never_overspend_resources(db_session):
+    owner = await create_user(db_session, telegram_id=4004)
+    settlement = await create_settlement(db_session, owner=owner, chat_id=-4004)
+    settler = await create_settler(db_session, user=owner, settlement=settlement)
+    metal = await create_resource(db_session, name="Сырьё", emoji="🔩", category="Материалы")
+    await grant_resource(db_session, settler=settler, resource=metal, quantity=10)
+    first_type = await create_building_type(db_session, name="Кузня", emoji="⚒", is_private=True, costs={metal: 10})
+    second_type = await create_building_type(db_session, name="Мастерская", emoji="🧰", is_private=True, costs={metal: 10})
+    await db_session.commit()
+
+    async def build(type_id):
+        async with app_db.SessionLocal() as session:
+            success, _ = await core.building_startBuilding(settler, type_id, "my", session)
+            return success
+
+    results = await asyncio.gather(build(first_type.id), build(second_type.id))
+
+    assert sorted(results) == [False, True]
+    async with app_db.SessionLocal() as session:
+        left = (await session.execute(
+            select(models.settler_resources.c.quantity).where(models.settler_resources.c.settler_id == settler.id)
+        )).scalar()
+    assert left == 0
 
 
 @pytest.mark.asyncio
