@@ -385,3 +385,35 @@ async def test_work_promo_and_quote_handlers(db_session, monkeypatch):
     quote_message = FakeMessage(from_user=tg_user, chat=chat, text="Это осмысленное сообщение")
     await handlers.quote_handler(quote_message)
     handlers.core.settler_updateQuote.assert_awaited()
+
+
+@pytest.mark.asyncio
+async def test_select_craft_respects_cooldown(db_session, monkeypatch):
+    i18n = _translator()
+    tg_user = build_user(user_id=4201, first_name="Hasty")
+    group_chat = build_chat(chat_id=-4201, title="Craft Town")
+    user = await create_user(db_session, telegram_id=tg_user.id, name=tg_user.full_name)
+    settlement = await create_settlement(db_session, owner=user, chat_id=group_chat.id, name="Craft Town")
+    farmer = await create_profession(db_session, emoji="🌻", name="Землепашец")
+    healer = await create_profession(db_session, emoji="📔", name="Знахарь")
+    settler = await create_settler(db_session, user=user, settlement=settlement, profession=farmer)
+    await db_session.commit()
+
+    monkeypatch.setattr(handlers.utils, "can_choose_craft", lambda *args, **kwargs: (False, "скоро"))
+    callback = FakeCallback(
+        from_user=tg_user,
+        message=FakeMessage(
+            from_user=tg_user,
+            chat=group_chat,
+            reply_to_message=SimpleNamespace(from_user=SimpleNamespace(id=tg_user.id)),
+        ),
+        data=f"select_craft:{healer.id}",
+    )
+
+    await handlers.select_craft_callback(callback, i18n)
+
+    callback.answer.assert_awaited_once()
+    callback.message.edit_text.assert_not_awaited()
+    async with app_db.SessionLocal() as session:
+        stored = await session.get(models.Settler, settler.id)
+    assert stored.profession_id == farmer.id

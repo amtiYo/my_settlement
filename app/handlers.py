@@ -1049,7 +1049,8 @@ async def select_craft_callback(callback: types.CallbackQuery, i18n: TranslatorR
             can_choose, when = utils.can_choose_craft(settler.last_profession_change, fallback=True)
             if not can_choose:
                 await callback.answer("⚠️ " + i18n.callback.craft.cooldown(when=when), True)
-        
+                return
+
         await session.execute(
             update(models.Settler)
             .where(models.Settler.id == settler.id)
