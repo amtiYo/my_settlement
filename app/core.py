@@ -163,6 +163,14 @@ async def building_startBuilding(settler: models.Settler, building_type_id: int,
     if bool(b_type.is_private) != is_private_scope:
         return False, "⚠️ Этот чертёж нельзя построить здесь."
 
+    existing_stmt = select(models.Building.id).where(
+        models.Building.building_type_id == b_type.id,
+        models.Building.settlement_id == settler.settlement_id,
+        models.Building.owner_id == settler.id if is_private_scope else models.Building.owner_id.is_(None),
+    )
+    if (await session.execute(existing_stmt)).first():
+        return False, f"⚠️ {b_type.emoji} {b_type.name} уже построен(а)."
+
     settlement = await session.get(models.Settlement, settler.settlement_id)
     is_prof_enough, prof_text, is_res_enough, res_text = await building_checkRequirements(settlement, settler, b_type, session)
     if not is_prof_enough or not is_res_enough:

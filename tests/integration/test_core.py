@@ -109,6 +109,23 @@ async def test_building_start_building_rejects_blueprint_from_other_scope(db_ses
 
 
 @pytest.mark.asyncio
+async def test_building_start_building_rejects_second_copy(db_session):
+    owner = await create_user(db_session, telegram_id=4003)
+    settlement = await create_settlement(db_session, owner=owner, chat_id=-4003)
+    settler = await create_settler(db_session, user=owner, settlement=settlement)
+    building_type = await create_building_type(db_session, name="Колодец", emoji="🪣", is_private=False)
+    await db_session.commit()
+
+    first, _ = await core.building_startBuilding(settler, building_type.id, "town", db_session)
+    second, _ = await core.building_startBuilding(settler, building_type.id, "town", db_session)
+
+    assert first is True
+    assert second is False
+    buildings = (await db_session.execute(select(models.Building))).scalars().all()
+    assert len(buildings) == 1
+
+
+@pytest.mark.asyncio
 async def test_settler_add_exp_promotes_rank_and_notifies(db_session, monkeypatch):
     sender = AsyncMock()
     monkeypatch.setattr(telegram_gateway, "send_message", sender)
