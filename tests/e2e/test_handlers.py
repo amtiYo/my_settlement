@@ -104,7 +104,8 @@ async def test_work_selection_callback_checks_user_and_starts_workflow(monkeypat
     i18n = _translator()
     user = models.User(id=1, telegram_id=1, name="Tester")
     settlement = models.Settlement(id=1, chat_id=-1000, name="Village")
-    settler = models.Settler(id=1, profession_id=3)
+    profession = models.Profession(id=3, emoji="🐾", name="Ловчий")
+    settler = models.Settler(id=1, profession_id=profession.id, profession=profession)
 
     monkeypatch.setattr(handlers.core, "user_getOrCreate", AsyncMock(return_value=user))
     monkeypatch.setattr(handlers.core, "settlement_getOrCreate", AsyncMock(return_value=settlement))
@@ -142,3 +143,13 @@ async def test_id_menu_deep_link_renders_full_style():
 
     message.answer.assert_awaited_once()
     assert "Telegram ID" in message.answer.await_args.args[0]
+
+
+def test_works_are_bound_to_profession_emoji_not_database_id():
+    catcher = models.Profession(id=1, emoji="🐾", name="Ловчий")
+    farmer = models.Profession(id=3, emoji="🌻", name="Землепашец")
+    fishing = models.WORKS_REGISTRY["catcher_fishing"]
+
+    assert fishing.is_available_for(models.Settler(profession_id=catcher.id, profession=catcher)) is True
+    assert fishing.is_available_for(models.Settler(profession_id=farmer.id, profession=farmer)) is False
+    assert fishing.is_available_for(models.Settler(profession_id=None)) is False

@@ -1085,7 +1085,7 @@ async def craft_command(message: types.Message, user: models.User, i18n: Transla
 
     available_works = [
         work for work in models.WORKS_REGISTRY.values()
-        if work.profession_id == settler.profession_id or work.profession_id is None
+        if work.is_available_for(settler)
     ]
 
     if not settler.profession_id:
@@ -1124,7 +1124,7 @@ async def work_selection_callback(callback: types.CallbackQuery, i18n: Translato
         await callback.answer("⚠️ " + i18n.callback.craft.work_not_found(), True)
         return
     
-    if work.profession_id != settler.profession_id:
+    if not work.is_available_for(settler):
         await callback.answer("⚠️ " + i18n.callback.craft.wrong_profession(), True)
         return
 
