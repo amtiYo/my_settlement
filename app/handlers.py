@@ -1164,7 +1164,11 @@ async def work_callback(callback: types.CallbackQuery, i18n: TranslatorRunner):
         await callback.answer("⚠️ " + i18n.callback.craft.work_not_found())
         return
     
-    if step_idx >= len(workflow.steps):
+    if work_id != getattr(workflow, "work_id", None):
+        await callback.answer("⚠️ " + i18n.callback.common.work.not_found())
+        return
+
+    if step_idx >= len(workflow.steps) or step_idx != workflow.current_step:
         await callback.answer("⚠️ " + i18n.callback.common.invalid_step())
         return
 

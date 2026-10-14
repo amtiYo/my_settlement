@@ -309,6 +309,7 @@ async def test_work_promo_and_quote_handlers(db_session, monkeypatch):
             self.game_over = False
             self.steps = [object()]
             self.current_step = 0
+            self.work_id = "catcher_fishing"
 
         def get_current_step(self):
             return None
@@ -417,3 +418,36 @@ async def test_select_craft_respects_cooldown(db_session, monkeypatch):
     async with app_db.SessionLocal() as session:
         stored = await session.get(models.Settler, settler.id)
     assert stored.profession_id == farmer.id
+
+
+@pytest.mark.asyncio
+async def test_work_callback_rejects_buttons_of_other_work_or_step(db_session, monkeypatch):
+    i18n = _translator()
+    tg_user = build_user(user_id=4301, first_name="Cheater")
+    group_chat = build_chat(chat_id=-4301, title="Work Town")
+    user = await create_user(db_session, telegram_id=tg_user.id, name=tg_user.full_name)
+    settlement = await create_settlement(db_session, owner=user, chat_id=group_chat.id, name="Work Town")
+    profession = await create_profession(db_session, emoji="🐾", name="Ловчий")
+    await create_settler(db_session, user=user, settlement=settlement, profession=profession)
+    await db_session.commit()
+
+    monkeypatch.setattr(handlers.utils, "can_click_button", lambda key: True)
+    monkeypatch.setattr(handlers.utils, "get_work_remaining_time", lambda chat_id: 100)
+    rewards = AsyncMock(return_value={})
+    monkeypatch.setattr(handlers.core, "settler_applyRewards", rewards)
+
+    workflow = models.WORKS_REGISTRY["catcher_milking"].build()
+    handlers.active_games[f"{group_chat.id}_{tg_user.id}"] = workflow
+    message = FakeMessage(from_user=tg_user, chat=group_chat)
+
+    foreign_work = FakeCallback(from_user=tg_user, message=message, data="work:healer_tea_brewing:0:0")
+    await handlers.work_callback(foreign_work, i18n)
+
+    stale_step = FakeCallback(from_user=tg_user, message=message, data="work:catcher_milking:1:0")
+    await handlers.work_callback(stale_step, i18n)
+
+    foreign_work.answer.assert_awaited_once()
+    stale_step.answer.assert_awaited_once()
+    message.edit_text.assert_not_awaited()
+    rewards.assert_not_awaited()
+    assert workflow.game_over is False

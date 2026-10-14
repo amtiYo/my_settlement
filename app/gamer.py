@@ -391,6 +391,7 @@ class Workflow(Step):
         self.failed = False
 
     def build_with_context(self, work_id: str):
+        self.work_id = work_id
         for idx, step in enumerate(self.steps):
             step.set_context(work_id, idx)
             if isinstance(step, Workflow):
