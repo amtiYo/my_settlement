@@ -162,6 +162,26 @@ async def test_settler_update_quote_rewards_and_resets_progress(db_session, monk
 
 
 @pytest.mark.asyncio
+async def test_settler_update_quote_message_has_rewards_and_hint(db_session, monkeypatch):
+    sender = AsyncMock()
+    monkeypatch.setattr(telegram_gateway, "send_message", sender)
+    monkeypatch.setattr(core.random, "randint", lambda start, end: start)
+
+    user = await create_user(db_session, telegram_id=6002, name="Newbie")
+    settlement = await create_settlement(db_session, owner=user, chat_id=-6002)
+    settler = await create_settler(db_session, user=user, settlement=settlement, level=1, quote=6, target_quote=7)
+    settler.target_exp = 999
+    await db_session.commit()
+
+    await core.settler_updateQuote(settler, settlement, db_session, add_quote=1)
+
+    quote_message = sender.await_args_list[-1].args[1]
+    assert "исполнил меру" in quote_message
+    assert "🗂: +" in quote_message
+    assert "ℹ️" in quote_message
+
+
+@pytest.mark.asyncio
 async def test_settler_apply_rewards_uses_building_bonuses(db_session, monkeypatch):
     monkeypatch.setattr(core.random, "random", lambda: 0.0)
 

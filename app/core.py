@@ -503,8 +503,8 @@ async def settler_updateQuote(settler: models.Settler, settlement: models.Settle
                 
                 text = (
                     f"📄 <b>{user.name if user else f'User {current.user_id}'}</b> исполнил меру <b>{current.target_quote}/{current.target_quote}</b>!"
-                    f"\n🗂: {round(earned_xp):+} | 💰: {round(earned_money):+}" if earned_xp > 0 else f"\n💰: {round(earned_money):+}"
-                    f"\nℹ️ Чтоб в мудрости возрасти, доведётся каталог 🗂 до конца довести; каталог 🗂 опыт заменяет" if current.level <= 2 and user.show_hints else ""
+                    + (f"\n🗂: {round(earned_xp):+} | 💰: {round(earned_money):+}" if earned_xp > 0 else f"\n💰: {round(earned_money):+}")
+                    + (f"\nℹ️ Чтоб в мудрости возрасти, доведётся каталог 🗂 до конца довести; каталог 🗂 опыт заменяет" if current.level <= 2 and user and user.show_hints else "")
                 )
                 
                 await telegram_gateway.send_message(settlement.chat_id, text)

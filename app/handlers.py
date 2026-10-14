@@ -584,7 +584,7 @@ async def show_buildings_menu(message: types.Message, user: models.User, settlem
                     status = "✅" if user.compact_style else "✅ " + (i18n.text.buildings.status.active() if i18n else "Активно")
                 else:
                     status = f"⏳ ({time_left})" if user.compact_style else "⏳ " + (i18n.text.buildings.status.construction(time_left=time_left) if i18n else f"Построится {time_left}")
-                text += f"\n\n{b.type.emoji} <b>{b.type.name}</b> ({b.level}/{b.type.max_level}):" + f"\n{status}\n" if not user.compact_style else f"{status}\n"
+                text += f"\n\n{b.type.emoji} <b>{b.type.name}</b> ({b.level}/{b.type.max_level}):" + (f"\n{status}\n" if not user.compact_style else f" {status}\n")
                 btn_text = f"{b.type.emoji} {b.type.name} ({'✅' if b.is_ready else '⏳'})"
                 kb.button(text=btn_text, callback_data=f"bld_view:{b.id}:{scope}")
             
