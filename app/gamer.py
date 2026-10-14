@@ -228,7 +228,7 @@ class Catch(Step):
         else:
             self.game_over = True
             self.won = False
-            return "miss"
+            return "lose"
         
     def copy(self):
         return copy.deepcopy(self)
