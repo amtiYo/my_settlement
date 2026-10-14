@@ -451,3 +451,30 @@ async def test_work_callback_rejects_buttons_of_other_work_or_step(db_session, m
     message.edit_text.assert_not_awaited()
     rewards.assert_not_awaited()
     assert workflow.game_over is False
+
+
+@pytest.mark.asyncio
+async def test_cosmetics_select_rejects_unavailable_emoji(db_session):
+    i18n = _translator()
+    tg_user = build_user(user_id=4401, first_name="Dandy")
+    group_chat = build_chat(chat_id=-4401, title="Style Town")
+    user = await create_user(db_session, telegram_id=tg_user.id, name=tg_user.full_name)
+    settlement = await create_settlement(db_session, owner=user, chat_id=group_chat.id, name="Style Town")
+    settler = await create_settler(db_session, user=user, settlement=settlement)
+    await db_session.commit()
+
+    callback = FakeCallback(
+        from_user=tg_user,
+        message=FakeMessage(
+            from_user=tg_user,
+            chat=group_chat,
+            reply_to_message=SimpleNamespace(from_user=SimpleNamespace(id=tg_user.id)),
+        ),
+        data="cosmetics_select_👑",
+    )
+    await handlers.cosmetics_select(callback, i18n)
+
+    callback.message.edit_text.assert_not_awaited()
+    async with app_db.SessionLocal() as session:
+        stored = await session.get(models.Settler, settler.id)
+    assert stored.emoji != "👑"

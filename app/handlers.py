@@ -847,11 +847,19 @@ async def cosmetics_select(callback: types.CallbackQuery, i18n: TranslatorRunner
             select(models.Settler).where(models.Settler.id == settler.id)
         )
         db_settler = result.scalars().first()
-        if db_settler:
-            db_settler.emoji = emoji
-            await session.commit()
-            await session.refresh(db_settler, ["user", "settlement"])
-            log.debug(f"{callback.message.chat.id} | {user.id} | ✅ Эмодзи изменен: {emoji}")
+        if not db_settler:
+            await callback.answer("❌ " + i18n.text.settler.error.not_found(), show_alert=True)
+            return
+
+        available_emojis = (db_settler.rank_emoji_available or []) + (db_settler.special_emoji_available or [])
+        if emoji not in available_emojis:
+            await callback.answer("⚠️ " + i18n.text.settler.cosmetics.none(), show_alert=True)
+            return
+
+        db_settler.emoji = emoji
+        await session.commit()
+        await session.refresh(db_settler, ["user", "settlement"])
+        log.debug(f"{callback.message.chat.id} | {user.id} | ✅ Эмодзи изменен: {emoji}")
 
     await callback.answer(text=f"🪭 " + i18n.text.settler.cosmetics.accepted(emoji=emoji))
     
