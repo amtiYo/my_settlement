@@ -252,13 +252,22 @@ def format_relative_time(target: Union[datetime, int, timedelta], now: Union[dat
     return f'<tg-time unix="{unix_time}" format="{tg_format}">{fallback_text}</tg-time>' if not fallback else fallback_text
 
 
+CLICK_COOLDOWN_SECONDS = 1.3
+CLICK_TIMES_PRUNE_SIZE = 10_000
+
 def can_click_button(user_key: str) -> bool:
     current_time = time.time()
     last_click = user_last_click_time.get(user_key, 0)
     
-    if current_time - last_click < 1.3:
+    if current_time - last_click < CLICK_COOLDOWN_SECONDS:
         return False
-    
+
+    # Записи старше кулдауна больше не нужны: без чистки словарь растёт на каждого игрока, нажавшего кнопку
+    if len(user_last_click_time) >= CLICK_TIMES_PRUNE_SIZE:
+        for key, clicked_at in list(user_last_click_time.items()):
+            if current_time - clicked_at >= CLICK_COOLDOWN_SECONDS:
+                del user_last_click_time[key]
+
     user_last_click_time[user_key] = current_time
     return True
 
