@@ -72,7 +72,6 @@ class TextCommand(BaseFilter):
 
         processed_text = utils.default_process(text)
 
-        from app.utils import KNOWN_TYPOS
         if processed_text in KNOWN_TYPOS and KNOWN_TYPOS[processed_text] in self.aliases:
             return True
 

@@ -253,7 +253,7 @@ async def show_settings_menu(message: types.Message, user: models.User, submenu:
             submenu = None 
 
     if submenu == "timezone":
-        last_change = arrow.get(user.last_tz_change) or arrow.get(datetime.min)
+        last_change = arrow.get(user.last_tz_change)
         unlock_time = last_change.shift(days=settings.TZ_CHANGE_COOLDOWN_DAYS)
         now = arrow.now()
         
@@ -378,7 +378,7 @@ async def set_tz_callback(callback: types.CallbackQuery, i18n: TranslatorRunner)
     async with app_db.SessionLocal() as session:
         result = await session.execute(select(models.User).where(models.User.telegram_id == callback.from_user.id))
         user = result.scalars().first()
-        last_change = arrow.get(user.last_tz_change) or arrow.get(datetime.min)
+        last_change = arrow.get(user.last_tz_change)
         unlock_time = last_change.shift(days=settings.TZ_CHANGE_COOLDOWN_DAYS)
         now = arrow.now()
         if now < unlock_time:

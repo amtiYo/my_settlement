@@ -378,7 +378,6 @@ class ProgressBar(Step):
         self.current = 0
         self.game_over = False
         self.won = False
-        self.lose = False
 
 
 class Workflow(Step):
