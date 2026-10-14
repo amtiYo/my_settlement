@@ -298,7 +298,7 @@ def get_work_remaining_time(chat_id: int) -> int:
         return 0
     
     elapsed = time.time() - work_start_time[chat_id]
-    remaining = 180 - elapsed  # 3 минуты = 180 секунд
+    remaining = settings.WORK_TIMEOUT_SECONDS - elapsed
     return max(0, int(remaining))
 
 def can_start_work(chat_id: int) -> tuple[bool, str]:
