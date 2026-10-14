@@ -934,6 +934,10 @@ async def overtime_take(callback: types.CallbackQuery, i18n: TranslatorRunner):
             await callback.answer("⚠️ " + i18n.callback.settler.overtime.already(), True)
             return
 
+        if not settler.quote_is_completed:
+            await callback.answer("⚠️ " + i18n.text.settler.overtime.status.need_quota(), True)
+            return
+
         new_quote = round((settler.level * 0.85 + 6) + (2 * (settler.overtime_count + 1)))
 
         await session.execute(

@@ -478,3 +478,31 @@ async def test_cosmetics_select_rejects_unavailable_emoji(db_session):
     async with app_db.SessionLocal() as session:
         stored = await session.get(models.Settler, settler.id)
     assert stored.emoji != "👑"
+
+
+@pytest.mark.asyncio
+async def test_overtime_take_requires_completed_quota(db_session):
+    i18n = _translator()
+    tg_user = build_user(user_id=4501, first_name="Eager")
+    group_chat = build_chat(chat_id=-4501, title="Field Town")
+    user = await create_user(db_session, telegram_id=tg_user.id, name=tg_user.full_name)
+    settlement = await create_settlement(db_session, owner=user, chat_id=group_chat.id, name="Field Town")
+    settler = await create_settler(db_session, user=user, settlement=settlement, quote=4, target_quote=6)
+    await db_session.commit()
+
+    callback = FakeCallback(
+        from_user=tg_user,
+        message=FakeMessage(
+            from_user=tg_user,
+            chat=group_chat,
+            reply_to_message=SimpleNamespace(from_user=SimpleNamespace(id=tg_user.id)),
+        ),
+        data="overtime_take",
+    )
+    await handlers.overtime_take(callback, i18n)
+
+    callback.message.edit_text.assert_not_awaited()
+    async with app_db.SessionLocal() as session:
+        stored = await session.get(models.Settler, settler.id)
+    assert stored.quote == 4
+    assert stored.overtime_is_toggled is False
